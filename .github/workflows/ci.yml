@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app tests
+      - run: pytest -q
+
+  bundle:
+    # Validates (and on main, deploys) the bundle when workspace credentials are configured as repo secrets
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ vars.DATABRICKS_HOST != '' }}
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t dev --var="warehouse_id=${{ vars.DATABRICKS_WAREHOUSE_ID }}"
+      - if: github.ref == 'refs/heads/main'
+        run: databricks bundle deploy -t prod --var="warehouse_id=${{ vars.DATABRICKS_WAREHOUSE_ID }}"

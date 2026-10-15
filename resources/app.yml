@@ -1,0 +1,18 @@
+resources:
+  apps:
+    orderops_copilot:
+      name: orderops-copilot
+      description: OrderOps Control Tower - live order KPIs + LangGraph ops copilot over MCP tools
+      source_code_path: ../app
+      # Resources the app's service principal is granted; app.yaml reads them via valueFrom
+      resources:
+        - name: sql-warehouse
+          description: Warehouse for KPI tiles and UC-function (MCP) execution
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: serving-endpoint
+          description: Llama Foundation Model API endpoint (fallback path when the gateway route is unset)
+          serving_endpoint:
+            name: ${var.llm_endpoint}
+            permission: CAN_QUERY

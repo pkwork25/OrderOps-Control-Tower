@@ -1,0 +1,72 @@
+resources:
+  jobs:
+    orderops_cdc:
+      name: orderops-cdc-pipeline
+      description: >
+        Incremental CDC: orders_source (Delta CDF) -> orders_silver (MERGE with deletes)
+        -> order_change_log (audit) -> order_ops_kpis (gold) -> UC functions exposed as MCP tools.
+      max_concurrent_runs: 1
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"   # every 15 minutes
+        timezone_id: Asia/Kolkata
+        pause_status: PAUSED                          # unpause once you're happy with dev runs
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+        # The app's service principal gets read + EXECUTE so the copilot can call MCP tools as itself
+        - name: app_sp
+          default: ${resources.apps.orderops_copilot.service_principal_client_id}
+        # Set to "false" in prod once a real OLTP feed (Lakeflow Connect / DMS / Debezium) writes orders_source
+        - name: simulate
+          default: "true"
+      # No cluster spec => runs on serverless jobs compute
+      tasks:
+        - task_key: setup_uc_objects
+          notebook_task:
+            notebook_path: ../src/cdc/00_setup_uc_objects.py
+
+        - task_key: simulate_source_changes
+          depends_on: [{ task_key: setup_uc_objects }]
+          notebook_task:
+            notebook_path: ../src/cdc/01_simulate_source_changes.py
+            base_parameters:
+              new_orders: "40"
+              updates: "60"
+              deletes: "5"
+
+        - task_key: propagate_cdc_to_silver
+          depends_on: [{ task_key: simulate_source_changes }]
+          notebook_task:
+            notebook_path: ../src/cdc/02_propagate_cdc.py
+
+        - task_key: build_gold_kpis
+          depends_on: [{ task_key: propagate_cdc_to_silver }]
+          notebook_task:
+            notebook_path: ../src/cdc/03_build_gold_kpis.py
+
+        - task_key: register_mcp_tools
+          depends_on: [{ task_key: build_gold_kpis }]
+          notebook_task:
+            notebook_path: ../src/cdc/04_register_mcp_tools.py
+
+    orderops_ai_gateway_setup:
+      name: orderops-ai-gateway-setup
+      description: One-off - creates the Unity AI Gateway model service that fronts Llama for the copilot.
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+        - name: llm_endpoint
+          default: ${var.llm_endpoint}
+        - name: app_sp
+          default: ${resources.apps.orderops_copilot.service_principal_client_id}
+      tasks:
+        - task_key: create_model_service
+          notebook_task:
+            notebook_path: ../src/ai_gateway/create_model_service.py

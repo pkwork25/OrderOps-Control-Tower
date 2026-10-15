@@ -1,0 +1,37 @@
+# OrderOps Control Tower — Databricks Asset Bundle
+# Deploy:  databricks bundle validate && databricks bundle deploy -t dev
+# Run:     databricks bundle run orderops_cdc -t dev
+#          databricks bundle run orderops_copilot -t dev
+bundle:
+  name: orderops-control-tower
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Existing Unity Catalog catalog that will hold the OrderOps schema
+    default: main
+  schema:
+    description: Schema for all OrderOps tables, volumes and UC functions (MCP tools)
+    default: orderops
+  warehouse_id:
+    description: SQL warehouse ID used by the app (KPI tiles) and by UC-function MCP tool calls
+  llm_endpoint:
+    description: Foundation Model API endpoint behind the Unity AI Gateway model service
+    default: databricks-meta-llama-3-3-70b-instruct
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://<your-workspace>.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://<your-workspace>.cloud.databricks.com
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      user_name: ${workspace.current_user.userName}

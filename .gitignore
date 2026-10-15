@@ -1,0 +1,8 @@
+.databricks/
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.DS_Store

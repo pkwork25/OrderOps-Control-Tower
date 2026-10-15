@@ -1,0 +1,24 @@
+command: ["streamlit", "run", "app.py"]
+
+env:
+  # Bound to the app resources declared in resources/app.yml
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: LLM_ENDPOINT
+    valueFrom: serving-endpoint
+
+  # Keep in sync with the bundle variables `catalog` / `schema`
+  - name: ORDEROPS_CATALOG
+    value: main
+  - name: ORDEROPS_SCHEMA
+    value: orderops
+
+  # Unity AI Gateway model service created by the orderops-ai-gateway-setup job.
+  # Leave empty to call the Foundation Model API endpoint directly (no gateway governance).
+  - name: LLM_GATEWAY_MODEL
+    value: main.orderops.orderops_llm
+
+  - name: MLFLOW_EXPERIMENT_NAME
+    value: /Shared/orderops-copilot-traces
+  - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+    value: "false"
